@@ -1,0 +1,18 @@
+# Node / Expo
+node_modules/
+.expo/
+.expo-shared/
+dist/
+build/
+.expo/**/*
+web-build/
+
+# Env & OS
+.env
+.env.*
+!.env.sample
+.DS_Store
+
+# Jest/Logs
+coverage/
+*.log

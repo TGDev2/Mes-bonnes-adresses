@@ -8,7 +8,9 @@
     "ios": {
       "supportsTablet": true,
       "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "Cette application utilise votre position pour centrer la carte et proposer des adresses à proximité."
+        "NSLocationWhenInUseUsageDescription": "Cette application utilise votre position pour centrer la carte et proposer des adresses à proximité.",
+        "NSPhotoLibraryUsageDescription": "Cette application utilise votre photothèque pour sélectionner une photo d’adresse.",
+        "NSCameraUsageDescription": "Cette application peut utiliser l’appareil photo pour prendre une photo d’adresse."
       }
     },
     "android": {

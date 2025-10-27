@@ -1,7 +1,12 @@
-import React, { useMemo } from "react";
-import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
+import React, { useEffect, useMemo, useState } from "react";
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 import MapView, { Marker, Region } from "react-native-maps";
 import { useUserLocation } from "../hooks/useUserLocation";
+import { useAuth } from "@/context/AuthContext";
+import { Address } from "@/types/models";
+import { subscribePublicAddresses, subscribeUserAddresses } from "@/services/addressService";
+import { Ionicons } from "@expo/vector-icons";
+import { useNavigation } from "@react-navigation/native";
 
 const DEFAULT_REGION: Region = {
     latitude: 48.8566,
@@ -11,7 +16,24 @@ const DEFAULT_REGION: Region = {
 };
 
 export default function MapScreen() {
+    const navigation = useNavigation<any>();
     const { coords, loading, error, permissionGranted } = useUserLocation();
+    const { user, isConfigured } = useAuth();
+
+    const [publicAddresses, setPublicAddresses] = useState<Address[]>([]);
+    const [myAddresses, setMyAddresses] = useState<Address[]>([]);
+
+    useEffect(() => {
+        if (!isConfigured) return;
+        const unsubs: Array<() => void> = [];
+        unsubs.push(subscribePublicAddresses(setPublicAddresses));
+        if (user) {
+            unsubs.push(subscribeUserAddresses(user.uid, setMyAddresses));
+        } else {
+            setMyAddresses([]);
+        }
+        return () => { unsubs.forEach(u => u()); };
+    }, [isConfigured, user?.uid]);
 
     const region: Region = useMemo(() => {
         if (coords) {
@@ -24,6 +46,14 @@ export default function MapScreen() {
         }
         return DEFAULT_REGION;
     }, [coords]);
+
+    const allMarkers: Address[] = useMemo(() => {
+        // Fusionner sans doublons (une même adresse pourrait satisfaire 2 abonnements si publique + mienne)
+        const map = new Map<string, Address>();
+        for (const a of publicAddresses) map.set(a.id, a);
+        for (const a of myAddresses) map.set(a.id, a);
+        return Array.from(map.values());
+    }, [publicAddresses, myAddresses]);
 
     if (loading) {
         return (
@@ -48,11 +78,30 @@ export default function MapScreen() {
     return (
         <View style={styles.container}>
             <MapView style={styles.map} initialRegion={region} showsUserLocation>
-                {coords && (
-                    <Marker coordinate={coords} title="Ma position" />
-                )}
+                {coords && <Marker coordinate={coords} title="Ma position" />}
+                {allMarkers.map((a) => (
+                    <Marker
+                        key={a.id}
+                        coordinate={{ latitude: a.latitude, longitude: a.longitude }}
+                        title={a.name}
+                        description={a.isPublic ? "Public" : "Privé"}
+                    />
+                ))}
             </MapView>
             {error ? <Text style={[styles.muted, styles.bottomInfo]}>{error}</Text> : null}
+
+            {/* Bouton flottant “Ajouter” */}
+            <Pressable
+                onPress={() => navigation.navigate("Ajouter une adresse")}
+                style={styles.fab}
+                disabled={!isConfigured}
+            >
+                <Ionicons name="add" size={28} color="#fff" />
+            </Pressable>
+
+            {!isConfigured && (
+                <Text style={[styles.muted, styles.bottomInfo]}>Firebase non configuré — ajout & synchro désactivés.</Text>
+            )}
         </View>
     );
 }
@@ -71,5 +120,20 @@ const styles = StyleSheet.create({
         paddingHorizontal: 8,
         paddingVertical: 4,
         borderRadius: 6
+    },
+    fab: {
+        position: "absolute",
+        right: 16,
+        bottom: 24,
+        width: 56, height: 56,
+        backgroundColor: "#1f6feb",
+        borderRadius: 28,
+        alignItems: "center",
+        justifyContent: "center",
+        elevation: 4,
+        shadowColor: "#000",
+        shadowOpacity: 0.2,
+        shadowRadius: 4,
+        shadowOffset: { width: 0, height: 2 }
     }
 });

@@ -1,7 +1,9 @@
 import { initializeApp, getApps, FirebaseApp } from "firebase/app";
-import { Auth, getAuth, initializeAuth } from "firebase/auth";
-import { getReactNativePersistence } from "firebase/auth/react-native";
+import { Auth, getAuth } from "firebase/auth";
+import { initializeAuth, getReactNativePersistence } from "firebase/auth/react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { Firestore, getFirestore } from "firebase/firestore";
+import { FirebaseStorage, getStorage } from "firebase/storage";
 
 const apiKey = process.env.EXPO_PUBLIC_FIREBASE_API_KEY;
 const projectId = process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID;
@@ -12,6 +14,8 @@ export const isFirebaseConfigured =
 
 let app: FirebaseApp | undefined;
 let auth: Auth | undefined;
+let db: Firestore | undefined;
+let storage: FirebaseStorage | undefined;
 
 if (isFirebaseConfigured) {
     const appInstance: FirebaseApp =
@@ -28,14 +32,18 @@ if (isFirebaseConfigured) {
 
     app = appInstance;
 
-    // Si hot-reload: getAuth fonctionne ; sinon on initialise avec persistance RN.
+    // RN/Expo : on initialise l'auth avec persistance AsyncStorage.
+    // En hot-reload (ou si déjà initialisé), on fallback sur getAuth.
     try {
-        auth = getAuth(appInstance);
-    } catch {
         auth = initializeAuth(appInstance, {
             persistence: getReactNativePersistence(AsyncStorage)
         });
+    } catch {
+        auth = getAuth(appInstance);
     }
+
+    db = getFirestore(appInstance);
+    storage = getStorage(appInstance);
 }
 
-export { app, auth };
+export { app, auth, db, storage };

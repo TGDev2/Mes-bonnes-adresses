@@ -10,7 +10,10 @@
     "web": "expo start --web",
     "lint": "eslint . --ext .ts,.tsx",
     "typecheck": "tsc --noEmit",
-    "test": "jest"
+    "test": "jest",
+    "firebase:login": "firebase login",
+    "firebase:deploy:rules": "firebase deploy --only firestore:rules,storage:rules",
+    "firebase:deploy": "firebase deploy --only firestore,storage"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",

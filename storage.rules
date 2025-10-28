@@ -1,0 +1,30 @@
+// storage.rules
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    function signedIn() {
+      return request.auth != null;
+    }
+    function isOwner(userId) {
+      return signedIn() && request.auth.uid == userId;
+    }
+
+    // Photo de profil: écriture/suppression par le propriétaire, lecture autorisée
+    match /users/{userId}/profile.jpg {
+      allow read: if true;         // getDownloadURL produit une URL tokenisée
+      allow write, delete: if isOwner(userId);
+    }
+
+    // Photos d'adresses
+    match /addresses/{userId}/{allPaths=**} {
+      allow read: if signedIn();   // visible pour utilisateurs connectés
+      allow write, delete: if isOwner(userId);
+    }
+
+    // Photos des commentaires
+    match /addressComments/{addressId}/{userId}/{allPaths=**} {
+      allow read: if signedIn();
+      allow write, delete: if isOwner(userId);
+    }
+  }
+}

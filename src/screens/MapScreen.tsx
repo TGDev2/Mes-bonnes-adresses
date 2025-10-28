@@ -87,6 +87,10 @@ export default function MapScreen() {
         );
     };
 
+    const openDetails = (a: Address) => {
+        navigation.navigate("Adresse", { addressId: a.id, initialAddress: a });
+    };
+
     if (loading) {
         return (
             <View style={styles.center}>
@@ -118,27 +122,36 @@ export default function MapScreen() {
                         title={a.name}
                         description={a.isPublic ? "Public" : "Privé"}
                     >
-                        <Callout>
+                        <Callout onPress={() => openDetails(a)}>
                             <View style={styles.callout}>
                                 <Text style={styles.calloutTitle}>{a.name}</Text>
                                 {a.description ? <Text style={styles.calloutDesc}>{a.description}</Text> : null}
                                 <Text style={styles.calloutMeta}>{a.isPublic ? "Public" : "Privé"}</Text>
 
-                                {user?.uid === a.userId ? (
+                                <View style={{ flexDirection: "row", gap: 8, marginTop: 6 }}>
                                     <Pressable
-                                        onPress={() => handleAskDelete(a)}
-                                        style={[
-                                            styles.button,
-                                            styles.dangerButton,
-                                            (deletingId === a.id || !isConfigured) && styles.buttonDisabled
-                                        ]}
-                                        disabled={deletingId === a.id || !isConfigured}
+                                        onPress={() => openDetails(a)}
+                                        style={[styles.button, styles.primaryButton]}
                                     >
-                                        <Text style={styles.buttonText}>
-                                            {deletingId === a.id ? "Suppression…" : "Supprimer"}
-                                        </Text>
+                                        <Text style={styles.buttonText}>Voir</Text>
                                     </Pressable>
-                                ) : null}
+
+                                    {user?.uid === a.userId ? (
+                                        <Pressable
+                                            onPress={() => handleAskDelete(a)}
+                                            style={[
+                                                styles.button,
+                                                styles.dangerButton,
+                                                (deletingId === a.id || !isConfigured) && styles.buttonDisabled
+                                            ]}
+                                            disabled={deletingId === a.id || !isConfigured}
+                                        >
+                                            <Text style={styles.buttonText}>
+                                                {deletingId === a.id ? "Suppression…" : "Supprimer"}
+                                            </Text>
+                                        </Pressable>
+                                    ) : null}
+                                </View>
                             </View>
                         </Callout>
                     </Marker>
@@ -197,19 +210,20 @@ const styles = StyleSheet.create({
     },
 
     // Callout
-    callout: { maxWidth: 240, gap: 6 },
+    callout: { maxWidth: 260, gap: 6 },
     calloutTitle: { fontWeight: "700", fontSize: 16 },
     calloutDesc: { color: "#374151" },
     calloutMeta: { color: "#6b7280", fontSize: 12 },
 
     // Boutons dans le callout
     button: {
-        marginTop: 8,
-        paddingVertical: 8,
-        paddingHorizontal: 12,
+        paddingVertical: 6,
+        paddingHorizontal: 10,
         borderRadius: 8,
-        alignItems: "center"
+        alignItems: "center",
+        justifyContent: "center"
     },
+    primaryButton: { backgroundColor: "#1f6feb" },
     dangerButton: { backgroundColor: "#e11d48" },
     buttonDisabled: { opacity: 0.6 },
     buttonText: { color: "#fff", fontWeight: "600" }

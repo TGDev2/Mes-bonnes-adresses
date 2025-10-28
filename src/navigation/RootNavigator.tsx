@@ -8,6 +8,7 @@ import ProfileScreen from "../screens/ProfileScreen";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { Ionicons } from "@expo/vector-icons";
 import AddAddressScreen from "@/screens/AddAddressScreen";
+import AddressDetailScreen from "@/screens/AddressDetailScreen";
 
 const Stack = createNativeStackNavigator();
 const AuthStack = createNativeStackNavigator();
@@ -41,6 +42,7 @@ export function RootNavigator() {
         <Stack.Navigator>
             <Stack.Screen name="App" component={AppTabs} options={{ headerShown: false }} />
             <Stack.Screen name="Ajouter une adresse" component={AddAddressScreen} />
+            <Stack.Screen name="Adresse" component={AddressDetailScreen} />
         </Stack.Navigator>
     ) : (
         <AuthStack.Navigator screenOptions={{ headerTitleAlign: "center" }}>

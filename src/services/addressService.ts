@@ -105,6 +105,31 @@ export function subscribeUserAddresses(
   return onSnapshot(q, (snap) => onChange(mapSnapToAddresses(snap)));
 }
 
+/** S'abonner à une adresse par ID (détail) */
+export function subscribeAddress(
+  addressId: string,
+  onChange: (address: Address | null) => void
+): () => void {
+  ensureConfigured();
+  const dref = doc(db!, "addresses", addressId);
+  return onSnapshot(dref, (snap) => {
+    if (!snap.exists()) return onChange(null);
+    const data = snap.data();
+    const gp = data.location as GeoPoint | undefined;
+    onChange({
+      id: snap.id,
+      userId: data.userId,
+      name: data.name,
+      description: data.description ?? undefined,
+      isPublic: !!data.isPublic,
+      photoUrl: data.photoUrl ?? null,
+      latitude: gp ? gp.latitude : 0,
+      longitude: gp ? gp.longitude : 0,
+      createdAt: (data.createdAt?.toMillis?.() as number | undefined) ?? undefined
+    });
+  });
+}
+
 /** Suppression d'une adresse (réservée au propriétaire) + suppression éventuelle de la photo. */
 export async function deleteAddress(params: { id: string; requesterId: string }): Promise<void> {
   ensureConfigured();

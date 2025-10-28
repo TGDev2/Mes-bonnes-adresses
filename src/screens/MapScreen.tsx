@@ -1,10 +1,10 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
-import MapView, { Marker, Region } from "react-native-maps";
+import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, View } from "react-native";
+import MapView, { Marker, Region, Callout } from "react-native-maps";
 import { useUserLocation } from "../hooks/useUserLocation";
 import { useAuth } from "@/context/AuthContext";
 import { Address } from "@/types/models";
-import { subscribePublicAddresses, subscribeUserAddresses } from "@/services/addressService";
+import { subscribePublicAddresses, subscribeUserAddresses, deleteAddress } from "@/services/addressService";
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 
@@ -22,6 +22,7 @@ export default function MapScreen() {
 
     const [publicAddresses, setPublicAddresses] = useState<Address[]>([]);
     const [myAddresses, setMyAddresses] = useState<Address[]>([]);
+    const [deletingId, setDeletingId] = useState<string | null>(null);
 
     useEffect(() => {
         if (!isConfigured) return;
@@ -32,7 +33,9 @@ export default function MapScreen() {
         } else {
             setMyAddresses([]);
         }
-        return () => { unsubs.forEach(u => u()); };
+        return () => {
+            unsubs.forEach((u) => u());
+        };
     }, [isConfigured, user?.uid]);
 
     const region: Region = useMemo(() => {
@@ -48,12 +51,41 @@ export default function MapScreen() {
     }, [coords]);
 
     const allMarkers: Address[] = useMemo(() => {
-        // Fusionner sans doublons (une même adresse pourrait satisfaire 2 abonnements si publique + mienne)
+        // Fusionne sans doublons (publique + mienne)
         const map = new Map<string, Address>();
         for (const a of publicAddresses) map.set(a.id, a);
         for (const a of myAddresses) map.set(a.id, a);
         return Array.from(map.values());
     }, [publicAddresses, myAddresses]);
+
+    const handleAskDelete = (a: Address) => {
+        if (!user || user.uid !== a.userId) return;
+        if (!isConfigured) {
+            Alert.alert("Configuration requise", "Firebase n'est pas configuré (.env manquant).");
+            return;
+        }
+        Alert.alert(
+            "Supprimer l’adresse",
+            `Voulez-vous vraiment supprimer « ${a.name} » ? Cette action est irréversible.`,
+            [
+                { text: "Annuler", style: "cancel" },
+                {
+                    text: "Supprimer",
+                    style: "destructive",
+                    onPress: async () => {
+                        try {
+                            setDeletingId(a.id);
+                            await deleteAddress({ id: a.id, requesterId: user.uid });
+                        } catch (e: any) {
+                            Alert.alert("Échec", e?.message ?? "Impossible de supprimer l’adresse.");
+                        } finally {
+                            setDeletingId(null);
+                        }
+                    }
+                }
+            ]
+        );
+    };
 
     if (loading) {
         return (
@@ -85,7 +117,31 @@ export default function MapScreen() {
                         coordinate={{ latitude: a.latitude, longitude: a.longitude }}
                         title={a.name}
                         description={a.isPublic ? "Public" : "Privé"}
-                    />
+                    >
+                        <Callout>
+                            <View style={styles.callout}>
+                                <Text style={styles.calloutTitle}>{a.name}</Text>
+                                {a.description ? <Text style={styles.calloutDesc}>{a.description}</Text> : null}
+                                <Text style={styles.calloutMeta}>{a.isPublic ? "Public" : "Privé"}</Text>
+
+                                {user?.uid === a.userId ? (
+                                    <Pressable
+                                        onPress={() => handleAskDelete(a)}
+                                        style={[
+                                            styles.button,
+                                            styles.dangerButton,
+                                            (deletingId === a.id || !isConfigured) && styles.buttonDisabled
+                                        ]}
+                                        disabled={deletingId === a.id || !isConfigured}
+                                    >
+                                        <Text style={styles.buttonText}>
+                                            {deletingId === a.id ? "Suppression…" : "Supprimer"}
+                                        </Text>
+                                    </Pressable>
+                                ) : null}
+                            </View>
+                        </Callout>
+                    </Marker>
                 ))}
             </MapView>
             {error ? <Text style={[styles.muted, styles.bottomInfo]}>{error}</Text> : null}
@@ -100,7 +156,9 @@ export default function MapScreen() {
             </Pressable>
 
             {!isConfigured && (
-                <Text style={[styles.muted, styles.bottomInfo]}>Firebase non configuré — ajout & synchro désactivés.</Text>
+                <Text style={[styles.muted, styles.bottomInfo]}>
+                    Firebase non configuré — ajout, suppression & synchro désactivés.
+                </Text>
             )}
         </View>
     );
@@ -125,7 +183,8 @@ const styles = StyleSheet.create({
         position: "absolute",
         right: 16,
         bottom: 24,
-        width: 56, height: 56,
+        width: 56,
+        height: 56,
         backgroundColor: "#1f6feb",
         borderRadius: 28,
         alignItems: "center",
@@ -135,5 +194,23 @@ const styles = StyleSheet.create({
         shadowOpacity: 0.2,
         shadowRadius: 4,
         shadowOffset: { width: 0, height: 2 }
-    }
+    },
+
+    // Callout
+    callout: { maxWidth: 240, gap: 6 },
+    calloutTitle: { fontWeight: "700", fontSize: 16 },
+    calloutDesc: { color: "#374151" },
+    calloutMeta: { color: "#6b7280", fontSize: 12 },
+
+    // Boutons dans le callout
+    button: {
+        marginTop: 8,
+        paddingVertical: 8,
+        paddingHorizontal: 12,
+        borderRadius: 8,
+        alignItems: "center"
+    },
+    dangerButton: { backgroundColor: "#e11d48" },
+    buttonDisabled: { opacity: 0.6 },
+    buttonText: { color: "#fff", fontWeight: "600" }
 });

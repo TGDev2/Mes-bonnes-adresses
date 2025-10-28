@@ -6,9 +6,12 @@ import {
   onSnapshot,
   query,
   serverTimestamp,
-  where
+  where,
+  deleteDoc,
+  doc,
+  getDoc
 } from "firebase/firestore";
-import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
+import { getDownloadURL, ref, uploadBytes, deleteObject } from "firebase/storage";
 import { db, storage, isFirebaseConfigured } from "@/lib/firebase";
 import { Address } from "@/types/models";
 
@@ -36,7 +39,7 @@ async function uploadImageIfAny(userId: string, localUri?: string | null): Promi
   const response = await fetch(localUri);
   const blob = await response.blob();
 
-  // Identifiant de fichier simple et sûr (évite 'global' / 'crypto.randomUUID')
+  // Identifiant de fichier simple et sûr
   const randomPart = Math.random().toString(36).slice(2);
   const key = `addresses/${userId}/${Date.now()}-${randomPart}.jpg`;
 
@@ -100,4 +103,34 @@ export function subscribeUserAddresses(
   ensureConfigured();
   const q = query(collection(db!, "addresses"), where("userId", "==", userId));
   return onSnapshot(q, (snap) => onChange(mapSnapToAddresses(snap)));
+}
+
+/** Suppression d'une adresse (réservée au propriétaire) + suppression éventuelle de la photo. */
+export async function deleteAddress(params: { id: string; requesterId: string }): Promise<void> {
+  ensureConfigured();
+
+  const dref = doc(db!, "addresses", params.id);
+  const snap = await getDoc(dref);
+  if (!snap.exists()) {
+    throw new Error("Adresse introuvable.");
+  }
+
+  const data = snap.data();
+  if (data.userId !== params.requesterId) {
+    throw new Error("Vous ne pouvez supprimer que vos propres adresses.");
+  }
+
+  const photoUrl: string | null | undefined = data.photoUrl ?? null;
+  // On essaie de supprimer la photo si elle existe (on ignore les erreurs de nettoyage)
+  if (photoUrl) {
+    try {
+      // La ref peut être créée à partir de l'URL publique
+      const sref = ref(storage!, photoUrl);
+      await deleteObject(sref);
+    } catch {
+      // Pas bloquant
+    }
+  }
+
+  await deleteDoc(dref);
 }

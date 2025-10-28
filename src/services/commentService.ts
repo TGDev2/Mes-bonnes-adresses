@@ -8,7 +8,8 @@ import {
     onSnapshot,
     orderBy,
     query,
-    serverTimestamp
+    serverTimestamp,
+    getCountFromServer
 } from "firebase/firestore";
 import { getDownloadURL, ref, uploadBytes, deleteObject } from "firebase/storage";
 import { db, isFirebaseConfigured, storage } from "@/lib/firebase";
@@ -56,6 +57,14 @@ export function subscribeComments(addressId: string, onChange: (comments: Commen
     return onSnapshot(q, (snap) => onChange(mapSnapToComments(snap, addressId)));
 }
 
+export async function getCommentsCount(addressId: string): Promise<number> {
+    ensureConfigured();
+    const q = query(collection(db!, "addresses", addressId, "comments"));
+    const snap = await getCountFromServer(q);
+    const count = (snap.data().count as number) ?? 0;
+    return count;
+}
+
 export async function addComment(params: {
     addressId: string;
     userId: string;
@@ -95,7 +104,6 @@ export async function deleteComment(params: {
     const data = snap.data();
     if (data.userId !== params.requesterId) throw new Error("Vous ne pouvez supprimer que vos propres commentaires.");
 
-    // Essai de suppression de la photo reliée (si photoUrl stockée)
     const photoUrl: string | null | undefined = data.photoUrl ?? null;
     if (photoUrl) {
         try {

@@ -10,7 +10,7 @@ web-build/
 # Env & OS
 .env
 .env.*
-!.env.sample
+!.env.example
 .DS_Store
 
 # Jest/Logs

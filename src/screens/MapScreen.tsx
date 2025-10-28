@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, View, Image } from "react-native";
 import MapView, { Marker, Region } from "react-native-maps";
 import { useUserLocation } from "../hooks/useUserLocation";
@@ -31,6 +31,9 @@ export default function MapScreen() {
     // 👉 cache des compteurs de commentaires
     const [commentCounts, setCommentCounts] = useState<Record<string, number>>({});
 
+    // 👉 ref carte + animation de recentrage
+    const mapRef = useRef<MapView | null>(null);
+
     useEffect(() => {
         if (!isConfigured) return;
         const unsubs: Array<() => void> = [];
@@ -56,6 +59,19 @@ export default function MapScreen() {
         }
         return DEFAULT_REGION;
     }, [coords]);
+
+    useEffect(() => {
+        if (!coords || !mapRef.current) return;
+        mapRef.current.animateToRegion(
+            {
+                latitude: coords.latitude,
+                longitude: coords.longitude,
+                latitudeDelta: 0.015,
+                longitudeDelta: 0.015
+            },
+            600
+        );
+    }, [coords?.latitude, coords?.longitude]);
 
     const allMarkers: Address[] = useMemo(() => {
         const map = new Map<string, Address>();
@@ -142,7 +158,12 @@ export default function MapScreen() {
 
     return (
         <View style={styles.container}>
-            <MapView style={styles.map} initialRegion={region} showsUserLocation>
+            <MapView
+                ref={mapRef}
+                style={styles.map}
+                initialRegion={region}
+                showsUserLocation
+            >
                 {coords && <Marker coordinate={coords} title="Ma position" />}
 
                 {allMarkers.map((a) => (
@@ -150,7 +171,7 @@ export default function MapScreen() {
                         key={a.id}
                         coordinate={{ latitude: a.latitude, longitude: a.longitude }}
                         onPress={() => setSelected(a)}
-                        title={a.name} // petite info native si besoin
+                        title={a.name}
                         description={a.isPublic ? "Public" : "Privé"}
                     />
                 ))}

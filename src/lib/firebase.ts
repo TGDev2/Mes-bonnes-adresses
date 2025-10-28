@@ -1,6 +1,5 @@
 import { initializeApp, getApps, FirebaseApp } from "firebase/app";
-import { Auth, getAuth } from "firebase/auth";
-import { initializeAuth, getReactNativePersistence } from "firebase/auth/react-native";
+import * as FirebaseAuth from "firebase/auth";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Firestore, getFirestore } from "firebase/firestore";
 import { FirebaseStorage, getStorage } from "firebase/storage";
@@ -13,7 +12,9 @@ export const isFirebaseConfigured =
     Boolean(apiKey) && Boolean(projectId) && Boolean(appId);
 
 let app: FirebaseApp | undefined;
-let auth: Auth | undefined;
+// Type sans référencer explicitement `Auth` (évite les soucis de d.ts)
+type RNAuth = ReturnType<typeof FirebaseAuth.getAuth>;
+let auth: RNAuth | undefined;
 let db: Firestore | undefined;
 let storage: FirebaseStorage | undefined;
 
@@ -32,14 +33,20 @@ if (isFirebaseConfigured) {
 
     app = appInstance;
 
-    // RN/Expo : on initialise l'auth avec persistance AsyncStorage.
-    // En hot-reload (ou si déjà initialisé), on fallback sur getAuth.
+    // Initialisation Auth robuste pour RN/Expo :
+    // - Si getReactNativePersistence est dispo (runtime), on l'utilise
+    // - Sinon, fallback sur getAuth (aucune persistance RN custom)
     try {
-        auth = initializeAuth(appInstance, {
-            persistence: getReactNativePersistence(AsyncStorage)
-        });
+        const getRNPersistence = (FirebaseAuth as any).getReactNativePersistence;
+        if (typeof getRNPersistence === "function") {
+            auth = FirebaseAuth.initializeAuth(appInstance, {
+                persistence: getRNPersistence(AsyncStorage)
+            });
+        } else {
+            auth = FirebaseAuth.getAuth(appInstance);
+        }
     } catch {
-        auth = getAuth(appInstance);
+        auth = FirebaseAuth.getAuth(appInstance);
     }
 
     db = getFirestore(appInstance);
